@@ -4,9 +4,6 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
-# =============================
-# METRICS
-# =============================
 def compute_metrics(y_true, y_pred):
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
@@ -22,7 +19,7 @@ def compute_metrics(y_true, y_pred):
     mae = mean_absolute_error(y_true, y_pred)
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
 
-    # ✅ FIXED MAPE (no explosion)
+    
     non_zero = y_true > 1
     if non_zero.any():
         mape = np.mean(np.abs((y_true[non_zero] - y_pred[non_zero]) / y_true[non_zero])) * 100
@@ -36,9 +33,7 @@ def compute_metrics(y_true, y_pred):
     }
 
 
-# =============================
-# ACTUAL VS PREDICTED PLOT
-# =============================
+
 def plot_actual_vs_forecast(
     history: pd.Series,
     forecast: pd.Series,
@@ -46,7 +41,7 @@ def plot_actual_vs_forecast(
     save_path: str = None,
 ):
     if history.empty or forecast.empty:
-        print("⚠️ No data to plot")
+        print("No data to plot")
         return
 
     plt.figure(figsize=(12, 6))
@@ -69,18 +64,16 @@ def plot_actual_vs_forecast(
     plt.close()
 
 
-# =============================
-# FUTURE FORECAST PLOT
-# =============================
+
 def plot_future_forecast(
     history: pd.Series,
     future_values: list,
-    freq: str = "W",  # ✅ IMPORTANT: weekly data
+    freq: str = "W",  # IMPORTANT: weekly data
     title: str = "Future Forecast",
     save_path: str = None,
 ):
     if history.empty or len(future_values) == 0:
-        print("⚠️ No data to plot")
+        print("No data to plot")
         return
 
     future_index = pd.date_range(
