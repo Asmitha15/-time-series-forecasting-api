@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sales Forecast Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            color: white;
+            text-align: center;
+            margin: 0;
+        }
+
+        .container {
+            margin-top: 80px;
+        }
+
+        .card {
+            background: white;
+            color: black;
+            padding: 30px;
+            width: 420px;
+            margin: auto;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .search-box {
+            display: flex;
+        }
+
+        input {
+            padding: 12px;
+            width: 70%;
+            border-radius: 8px 0 0 8px;
+            border: none;
+            outline: none;
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            background: #667eea;
+            color: white;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #5a67d8;
+        }
+
+        #suggestions {
+            position: absolute;
+            background: white;
+            color: black;
+            width: 70%;
+            left: 15%;
+            top: 120px;
+            border-radius: 8px;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+            display: none;
+            text-align: left;
+        }
+
+        .suggestion {
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .suggestion:hover {
+            background: #f0f0f0;
+        }
+
+        #model {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        #error {
+            color: red;
+            margin-top: 10px;
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>Sales Forecast Dashboard</h2>
+
+    <div class="card">
+
+        <div class="search-box">
+            <input id="stateInput" placeholder="Enter state (e.g., Texas)" onkeyup="showSuggestions()">
+            <button onclick="getForecast()">Search</button>
+        </div>
+
+        <div id="suggestions"></div>
+
+        <div id="model"></div>
+        <div id="error"></div>
+
+        <canvas id="chart"></canvas>
+
+    </div>
+</div>
+
+<script>
+let chart;
+
+let states = [];
+
+async function loadStates() {
+    let res = await fetch("http://127.0.0.1:8000/models");
+    let data = await res.json();
+    states = Object.keys(data);
+}
+
+loadStates();
+function showSuggestions() {
+    let input = document.getElementById("stateInput").value.toLowerCase();
+    let box = document.getElementById("suggestions");
+
+    box.innerHTML = "";
+
+    if (!input) {
+        box.style.display = "none";
+        return;
+    }
+
+    let filtered = states.filter(s => s.toLowerCase().includes(input));
+
+    if (filtered.length === 0) {
+        box.style.display = "none";
+        return;
+    }
+
+    filtered.forEach(s => {
+        let div = document.createElement("div");
+        div.className = "suggestion";
+        div.innerText = s;
+        div.onclick = () => {
+            document.getElementById("stateInput").value = s;
+            box.style.display = "none";
+        };
+        box.appendChild(div);
+    });
+
+    box.style.display = "block";
+}
+
+async function getForecast() {
+    let state = document.getElementById("stateInput").value;
+
+    document.getElementById("error").innerText = "";
+
+    if (!state) {
+        document.getElementById("error").innerText = "Please enter a state";
+        return;
+    }
+
+    let response = await fetch("http://127.0.0.1:8000/predict", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({state: state})
+    });
+
+    let data = await response.json();
+
+    if (data.detail) {
+        document.getElementById("error").innerText = data.detail;
+        return;
+    }
+
+    document.getElementById("model").innerText =
+        "Best Model: " + data.model;
+
+    drawChart(data.forecast);
+}
+
+function drawChart(values) {
+    let ctx = document.getElementById("chart").getContext("2d");
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: values.map((_, i) => "Week " + (i + 1)),
+            datasets: [{
+                label: "Forecast",
+                data: values,
+                borderColor: "#667eea",
+                backgroundColor: "rgba(102,126,234,0.2)",
+                fill: true,
+                tension: 0.4
+            }]
+        }
+    });
+}
+
+document.getElementById("stateInput").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        getForecast();
+    }
+});
+</script>
+
+</body>
+</html>

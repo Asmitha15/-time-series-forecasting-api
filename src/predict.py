@@ -4,68 +4,70 @@ import numpy as np
 
 MODEL_DIR = "models"
 
+
 def load_model_file(state):
-    path = os.path.join(MODEL_DIR, f"{state}.pkl")
-    if not os.path.exists(path):
-        raise ValueError("Model not found")
-    return joblib.load(path)
+    return joblib.load(f"{MODEL_DIR}/{state}.pkl")
+
 
 def forecast_arima(model):
     return list(map(float, model.forecast(8)))
+
 
 def forecast_prophet(model):
     future = model.make_future_dataframe(periods=8, freq="W")
     forecast = model.predict(future)
     return forecast["yhat"].tail(8).tolist()
 
-def forecast_xgboost(model, info):
-    import numpy as np
 
-    history = [float(x) for x in info["last_values"]]
+def forecast_xgboost(model, info):
+    history = info.get("last_values", []).copy()
+
+    if len(history) < 10:
+        return [float(np.mean(history))] * 8
+
     preds = []
 
-    trend = len(history)
-
     for _ in range(8):
-        lag_1 = float(history[-1])
-        lag_7 = float(history[-7]) if len(history) >= 7 else lag_1
-        lag_30 = float(history[-30]) if len(history) >= 30 else lag_1
+        lag_1 = history[-1]
+        lag_7 = history[-7] if len(history) >= 7 else lag_1
+        lag_30 = history[-30] if len(history) >= 30 else lag_1
 
-        rolling_mean_7 = float(np.mean(history[-7:]))
-        rolling_std_7 = float(np.std(history[-7:])) if len(history) >= 7 else 0.0
+        rolling_mean_7 = np.mean(history[-7:])
+        rolling_std_7 = np.std(history[-7:])
 
-        features = np.array([[
+        features = [[
             lag_1,
             lag_7,
             lag_30,
             rolling_mean_7,
             rolling_std_7,
-            0.0,
-            0.0,
-            0.0,
-            float(trend)
-        ]], dtype=float)
+            0,
+            0,
+            0
+        ]]
 
-        pred = float(model.predict(features)[0])
+        pred = model.predict(features)[0]
 
-        pred = max(pred, 0.0)
+        pred = max(pred, 0)
+        pred = min(pred, np.mean(history[-10:]) * 1.2)
 
-        recent_mean = float(np.mean(history[-10:]))
-        pred = min(pred, recent_mean * 1.15)
-
-        preds.append(pred)
+        preds.append(float(pred))
         history.append(pred)
 
-        trend += 1
-
     return preds
+
+
 def forecast_lstm(info):
     from tensorflow.keras.models import load_model
+
+    if not os.path.exists(info.get("model_path", "")):
+        return [0.0] * 8
 
     model = load_model(info["model_path"])
     scaler = joblib.load(info["scaler_path"])
 
     window = np.array(info["last_window"]).reshape(1, -1, 1)
+
     preds = []
 
     for _ in range(8):
@@ -74,20 +76,31 @@ def forecast_lstm(info):
         window = np.append(window[:, 1:, :], [[[pred]]], axis=1)
 
     preds = scaler.inverse_transform(np.array(preds).reshape(-1, 1)).flatten()
+
     return preds.tolist()
+
 
 def forecast_state(state):
     artifact = load_model_file(state)
 
-    if artifact["model_type"] == "prophet":
-        base = forecast_prophet(artifact["model"])
-        return base
+    model_type = artifact.get("model_type")
+    model = artifact.get("model")
+    info = artifact.get("info", {})
 
-    if artifact["model_type"] == "xgboost":
-        return forecast_xgboost(artifact["model"], artifact["info"])
+    try:
+        if model_type == "arima":
+            return forecast_arima(model)
 
-    if artifact["model_type"] == "arima":
-        return forecast_arima(artifact["model"])
+        elif model_type == "prophet":
+            return forecast_prophet(model)
 
-    if artifact["model_type"] == "lstm":
-        return forecast_lstm(artifact["info"])
+        elif model_type == "xgboost":
+            return forecast_xgboost(model, info)
+
+        elif model_type == "lstm":
+            return forecast_lstm(info)
+
+    except Exception as e:
+        print(f"Error in {state} ({model_type}):", e)
+
+    return [float(np.mean(info.get("last_values", [0]))) for _ in range(8)]
