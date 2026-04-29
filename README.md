@@ -6,9 +6,9 @@ This project is a production-ready Time Series Forecasting system that predicts 
 The system:
 - Trains multiple forecasting models
 - Compares performance automatically
-- Selects the best model
+- Selects the best model based on evaluation metrics
 - Serves predictions through a REST API
-
+- Provides an interactive UI dashboard for visualization
 
 ## Problem Statement
 Forecast the next 8 weeks of sales for each state while:
@@ -17,16 +17,14 @@ Forecast the next 8 weeks of sales for each state while:
 - Avoiding data leakage
 - Providing predictions via API
 
-
 ## Project Structure
-
 time_series_api/
 │
 ├── data/
 │   └── dataset.xlsx
 │
 ├── models/
-│   ├── Texas.pkl
+│   ├── <state>.pkl
 │   └── summary.json
 │
 ├── src/
@@ -38,20 +36,21 @@ time_series_api/
 ├── api/
 │   └── main.py
 │
+├── frontend/
+│   └── index.html
+│
 ├── train_runner.py
 ├── visualize_runner.py
 ├── requirements.txt
 └── README.md
 
-
 ## Data Processing
 - Automatically detects and cleans dataset columns
 - Converts date column to datetime format
-- Sorts data by time
+- Sorts data chronologically
 - Handles missing values using interpolation
 - Resamples data to weekly frequency
 - Ensures continuous time series per state
-
 
 ## Feature Engineering
 
@@ -72,42 +71,36 @@ time_series_api/
 - is_holiday
 
 ### Trend Feature
-- trend index to capture growth patterns
-
+- trend index to capture long-term patterns
 
 ## Train / Validation Split
-- Time-based split (no random split)
+- Time-based split (no random sampling)
 - Prevents data leakage
-- Uses most recent data for validation
-
+- Uses recent data for validation
 
 ## Models Implemented
-1. ARIMA
-2. Prophet
-3. XGBoost
-4. LSTM
-
+1. ARIMA  
+2. Prophet  
+3. XGBoost  
+4. LSTM  
 
 ## Evaluation Metrics
 - MAE (Mean Absolute Error)
 - RMSE (Root Mean Squared Error)
 - MAPE (Mean Absolute Percentage Error)
 
-Best model is selected based on lowest RMSE.
-
+The best model is selected based on the lowest RMSE.
 
 ## Model Selection
-- All models are trained for each state
-- Metrics are compared
+- All models are trained independently for each state
+- Performance metrics are computed
 - Best model is automatically selected and saved
 
-
 ## Forecasting
-- Predicts next 8 weeks
+- Predicts next 8 weeks of sales
 - Uses:
-  - Direct forecasting for ARIMA and Prophet
-  - Recursive forecasting for XGBoost and LSTM
-
+  - Direct forecasting (ARIMA, Prophet)
+  - Recursive forecasting (XGBoost, LSTM)
 
 ## API Endpoints
 
@@ -118,7 +111,6 @@ Response:
 {
   "status": "ok"
 }
-
 
 ### Predict
 POST /predict
@@ -131,15 +123,20 @@ Request:
 Response:
 {
   "state": "Texas",
+  "model": "arima",
   "forecast": [ ... ]
 }
-
 
 ### Models Info
 GET /models
 
-Returns best model for each state
+Returns best model for each state.
 
+## User Interface (Frontend)
+- Search-based input for selecting states
+- Dynamic state loading from backend
+- Interactive forecast visualization using charts
+- Displays selected model and prediction results
 
 ## How to Run
 
@@ -152,27 +149,27 @@ python train_runner.py
 Step 3: Start API
 uvicorn api.main:app --reload
 
-Step 4: Test API
+Step 4: Open UI
+open frontend/index.html
+
+Step 5: Test API manually (optional)
 curl -X POST http://127.0.0.1:8000/predict \
 -H "Content-Type: application/json" \
 -d '{"state":"Texas"}'
-
 
 ## Visualization
 Run:
 python visualize_runner.py
 
-This generates:
+Generates:
 - Actual vs Predicted plot
 - Future Forecast plot
-
 
 ## Error Handling
 - Handles missing state input
 - Handles model not found
-- Handles empty or invalid responses
-- Returns appropriate API errors
-
+- Handles invalid or empty responses
+- Returns appropriate API error messages
 
 ## Requirements
 - pandas
@@ -188,21 +185,19 @@ This generates:
 - uvicorn
 - joblib
 
-
 ## Key Highlights
 - End-to-end machine learning pipeline
 - Multiple model comparison
 - Automated model selection
 - Production-ready API
+- Interactive UI dashboard
 - Modular and clean code structure
-
 
 ## Future Improvements
 - Hyperparameter tuning
 - Cloud deployment
 - Real-time forecasting
-- Dashboard interface
-
+- Advanced dashboard UI
 
 ## Author
 Asmitha Narla
